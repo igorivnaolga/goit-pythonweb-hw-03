@@ -2,10 +2,13 @@ import mimetypes
 import pathlib
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
+import json
+from datetime import datetime
 
 
 class HttpHandler(BaseHTTPRequestHandler):
     def do_POST(self):
+        # Read and decode form data
         data = self.rfile.read(int(self.headers["Content-Length"]))
         print(data)
         data_parse = urllib.parse.unquote_plus(data.decode())
@@ -14,6 +17,33 @@ class HttpHandler(BaseHTTPRequestHandler):
             key: value for key, value in [el.split("=") for el in data_parse.split("&")]
         }
         print(data_dict)
+        # Path to the directory and file
+        storage_dir = pathlib.Path("storage")
+        storage_dir.mkdir(exist_ok=True)
+        data_file = storage_dir / "data.json"
+
+        # Get current timestamp as key
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Read existing data
+        if data_file.exists():
+            try:
+                with open(data_file, "r", encoding="utf-8") as f:
+                    all_data = json.load(f)
+                    if not isinstance(all_data, dict):
+                        all_data = {}
+            except json.JSONDecodeError:
+                all_data = {}
+        else:
+            all_data = {}
+
+        # Add new record with timestamp
+        all_data[timestamp] = data_dict
+
+        # Save data to JSON file
+        with open(data_file, "w", encoding="utf-8") as f:
+            json.dump(all_data, f, ensure_ascii=False, indent=4)
+
+        # Redirect back to "/"
         self.send_response(302)
         self.send_header("Location", "/")
         self.end_headers()
