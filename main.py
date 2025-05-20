@@ -4,6 +4,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import json
 from datetime import datetime
+from jinja2 import Environment, FileSystemLoader
 
 
 class HttpHandler(BaseHTTPRequestHandler):
@@ -54,6 +55,8 @@ class HttpHandler(BaseHTTPRequestHandler):
             self.send_html_file("index.html")
         elif pr_url.path == "/message":
             self.send_html_file("message.html")
+        elif pr_url.path == "/read":
+            self.render_messages_page()
         else:
             if pathlib.Path().joinpath(pr_url.path[1:]).exists():
                 self.send_static()
@@ -77,6 +80,28 @@ class HttpHandler(BaseHTTPRequestHandler):
         self.end_headers()
         with open(f".{self.path}", "rb") as file:
             self.wfile.write(file.read())
+
+    def render_messages_page(self):
+        data_file = pathlib.Path("storage") / "data.json"
+
+        if data_file.exists():
+            with open(data_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            data = {}
+
+        # Set up Jinja2 template enviroment
+        env = Environment(loader=FileSystemLoader("templates"))
+        template = env.get_template("messages.html")
+
+        # Render HTML using template
+        html = template.render(data=data)
+
+        # Send HTTP response
+        self.send_response(200)
+        self.send_header("Content-type", "text/html")
+        self.end_headers()
+        self.wfile.write(html.encode("utf-8"))
 
 
 def run(server_class=HTTPServer, handler_class=HttpHandler):
